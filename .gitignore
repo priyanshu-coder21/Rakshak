@@ -1,0 +1,26 @@
+# Environment variables
+.env
+.env.*
+
+# PostgreSQL data
+postgres_data/
+pgdata/
+data/
+
+# Docker
+.docker/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
