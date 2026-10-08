@@ -1,0 +1,26 @@
+# --- 1. Core API & Web Server ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+python-dotenv>=1.0.0
+
+# --- 2. Database & Geospatial Integration ---
+sqlalchemy>=2.0.29
+psycopg2-binary>=2.9.9
+geoalchemy2>=0.14.7
+shapely>=2.0.4
+
+# --- 3. Tokenization & Local AI ---
+tokenizers>=0.19.1
+ollama>=0.1.8
+openai-whisper>=20231117
+
+# --- 4. Predictive ML & Dashboard ---
+scikit-learn>=1.4.2
+streamlit>=1.33.0
+folium>=0.16.0
+streamlit-folium>=0.21.0
+
+# --- 5. Alerts & Notifications ---
+boto3>=1.34.80

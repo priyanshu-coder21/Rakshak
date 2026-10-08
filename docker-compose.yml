@@ -15,8 +15,10 @@ services:
       - "5432:5432"
 
     volumes:
-      - postgres_data:/var/lib/postgresql
-
+      # Stores your actual database data permanently
+      - postgres_data:/var/lib/postgresql/data 
+      # Automatically runs your schema script on startup
+      - ./database/init_schema.sql:/docker-entrypoint-initdb.d/init_schema.sql
 
   adminer:
     image: adminer
@@ -26,6 +28,5 @@ services:
     ports:
       - "8080:8080"
 
-
 volumes:
-  postgres_data:
+    postgres_data:
