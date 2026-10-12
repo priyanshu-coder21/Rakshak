@@ -1,3 +1,6 @@
+# ==========================================
+# 1. IMPORTS
+# ==========================================
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal
@@ -5,39 +8,63 @@ import string
 import secrets
 from psycopg2.extras import Json
 import psycopg2, os
+from tokenizers import Tokenizer
 import ollama
 import json
 from dotenv import load_dotenv
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 
+# ==========================================
+# 2. ENVIRONMENT & APP INITIALIZATION
+# ==========================================
+# Load the env file to access Postgres credentials securely
 load_dotenv()
 
+# Load a pre-trained fast tokenizer (e.g., standard BERT) to manage text length for the AI
+tokenizer = Tokenizer.from_pretrained("bert-base-uncased")
+
+# Initialize the FastAPI application instance
 app = FastAPI()
 
+# Mount static folder to serve frontend assets (HTML, CSS, JS)
+app.mount("/static", StaticFiles(directory="src"), name="static")
+
+
+# ==========================================
+# 3. PYDANTIC MODELS (Data Validation)
+# ==========================================
+# Defines the expected payload when a victim submits a distress signal
 class DistressRequest(BaseModel):
     raw_message: str = Field(..., description='Message of the victim')
     latitude: float = Field(..., ge=-90.0, le=90.0, example=30.3165)
     longitude: float = Field(..., ge=-180.0, le=180.0, example=78.0322)
 
+# Defines the structured response sent back to the victim
 class DistressResponse(BaseModel):
     token_id: str
     status: str
     extracted_data: dict
     message: str
 
+# Defines the expected payload when registering a new rescue team
 class RescueRequest(BaseModel):
     latitude: float = Field(..., ge=-90.0, le=90.0, example=30.3165)
     longitude: float = Field(..., ge=-180.0, le=180.0, example=78.0322)
     team_capacity: int = Field(..., ge=5)
 
-
+# Defines the structured response after a rescue team registers
 class RescueResponse(BaseModel):
     team_id: str
     status: Literal['Available', 'In_Transit', 'Assigned']
     message: str
 
 
-
-# establish the connection with database
+# ==========================================
+# 4. HELPER & UTILITY FUNCTIONS
+# ==========================================
+# establish the connection with database using environment variables
 def get_db_connection():
     return psycopg2.connect(
         dbname=os.getenv("POSTGRES_DB"),
@@ -47,9 +74,7 @@ def get_db_connection():
         port=os.getenv("POSTGRES_PORT")
     )
 
-
-
-# token id generation
+# token id generation to create an anonymous tracking ID (PID paradigm) for victims
 def token_id_generator(prefix="TK-2026-UK") -> str:
     random_chars = ''.join(
         secrets.choice(string.ascii_uppercase + string.digits)
@@ -66,10 +91,7 @@ def token_id_generator(prefix="TK-2026-UK") -> str:
 
     return f"{prefix}-{random_chars}"
 
-
-
-
-# team_id generation
+# team_id generation to uniquely identify rescue units
 def team_id_generator(prefix='UK-2026-RES') -> str:
     random_chars = ''.join(
         secrets.choice (string.ascii_uppercase + string.digits)
@@ -78,12 +100,16 @@ def team_id_generator(prefix='UK-2026-RES') -> str:
 
     return f"{prefix}-{random_chars}"
 
-
-
-
+# Passes the raw message to a local LLM to extract structured severity and vulnerability metrics
 def extract_disaster_metrics(text: str) -> dict:
-    # Basic tokenization / truncation check for safety limit
-    clean_text = " ".join(text.strip().split()[:120])
+    # 1. Hugging Face Tokenization: Convert text into AI token IDs
+    encoded = tokenizer.encode(text)
+    
+    # 2. Truncate strictly to your safety limit (e.g., max 120 tokens)
+    truncated_ids = encoded.ids[:120]
+    
+    # 3. Decode the token IDs back into a clean string for Ollama
+    clean_text = tokenizer.decode(truncated_ids)
     
     system_prompt = (
         "You are an emergency response AI. Extract details from the distress text. "
@@ -107,32 +133,32 @@ def extract_disaster_metrics(text: str) -> dict:
         return {"severity": 3, "vulnerability": 3}
 
 
+# ==========================================
+# 5. API ROUTES
+# ==========================================
 
+# Route to serve the frontend interface
+@app.get("/")
+async def serve_index():
+    return FileResponse(os.path.join("src", "index.html"))
 
-# def extract_disaster_metrics(text: str) -> dict:
-#     # tokenization
-#     clean_text = " ".join(text.strip().split()[:120])
-
-
-
-
-
-
-
-
-# request going to db by victim
+# request going to db by victim to log their distress call
 @app.post('/api/distress', response_model=DistressResponse, status_code=201)
 def report_distress(distress_data: DistressRequest):
 
+    # Generate a unique tracker and extract data via Ollama
     token_id = token_id_generator()
     extracted_data = extract_disaster_metrics(distress_data.raw_message)
     extracted_json = Json(extracted_data)
+    
+    # NOTE: Hardcoded metrics (can be dynamically mapped from extracted_json later)
     severity = 1
     vulnerability = 1
 
     conn = None
     cur = None
 
+    # SQL string mapping coordinates to a PostGIS spatial point (SRID 4326)
     insert_sql_query = """
         INSERT INTO DistressTickets (
             token_id, raw_message, extracted_json, location, severity, vulnerability, status
@@ -145,6 +171,7 @@ def report_distress(distress_data: DistressRequest):
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
+            # Execute database insertion
             cur.execute(insert_sql_query, (
                     token_id,
                     distress_data.raw_message,
@@ -155,9 +182,11 @@ def report_distress(distress_data: DistressRequest):
                     vulnerability
                     )
             )
+        # Finalize the transaction
         conn.commit()
 
     except Exception as e:
+        # Revert changes if the database operation fails
         if conn:
             conn.rollback()
 
@@ -167,6 +196,7 @@ def report_distress(distress_data: DistressRequest):
         )
 
     finally:
+        # Always close connection to prevent connection pooling limits
         if conn:
             conn.close()
 
@@ -178,12 +208,7 @@ def report_distress(distress_data: DistressRequest):
         message="Distress report registered successfully. Keep your tracking token safe."
     )
 
-
-
-
-
-
-# get data from Distress table
+# get data from Distress table for the command dashboard
 @app.get('/getDistress')
 async def get_distress():
 
@@ -193,15 +218,16 @@ async def get_distress():
     try:
         connection = get_db_connection()
 
+        # Query all active distress tickets
         query = """
         SELECT *
         FROM DistressTickets
         """
         with connection.cursor() as cursor:
             cursor.execute(query)
-
             rows = cursor.fetchall()
 
+            # Map tuples to a list of dictionaries for clean JSON response
             result = []
             for row in rows:
                 result.append({
@@ -210,8 +236,10 @@ async def get_distress():
                     "extracted_json" : row[2], 
                     "location" : row[3], 
                     "severity" : row[4], 
-                    "vulnerability" : row[5], 
-                    "status" : row[6]
+                    "vulnerability" : row[5],
+                    "wait_time_start" : row[6],
+                    "vwps_score" : row[7],
+                    "status" : row[8]
                 })
 
         return result
@@ -226,15 +254,11 @@ async def get_distress():
         if connection:
             connection.close()
 
-
-
-
-
-
-
+# Register a new rescue team to the system
 @app.post('/api/rescue', response_model=RescueResponse, status_code=201)
 async def post_rescue(rescue_data:RescueRequest):
 
+    # Create a unique ID for the team
     team_id = team_id_generator()
 
     connection = None
@@ -243,6 +267,7 @@ async def post_rescue(rescue_data:RescueRequest):
     try:
         connection = get_db_connection()
 
+        # Insert team with PostGIS spatial point
         query = """
         INSERT INTO RescueTeams (
         team_id, current_location, team_capacity)
@@ -257,6 +282,7 @@ async def post_rescue(rescue_data:RescueRequest):
                 rescue_data.team_capacity
             ))
 
+        # Commit transaction
         connection.commit()
 
     except Exception as e:
@@ -278,14 +304,7 @@ async def post_rescue(rescue_data:RescueRequest):
         message="The Rescue has been registered."
     )
 
-
-
-
-
-
-
-
-
+# Retrieve all active rescue teams for the dashboard
 @app.get('/getRescue')
 async def get_rescue():
 
@@ -325,17 +344,83 @@ async def get_rescue():
         if connection:
             connection.close()
 
+# Triggers the VWPS spatial matching algorithm to dispatch the nearest team
+@app.post('/api/dispatch/run', status_code=200)
+async def dispatch_run():
+    connection = None
+
+    try:
+        connection = get_db_connection()
+
+        # select the token_id and location of 1 victim (based on vwps_score, token_id)
+        # token_id used as tie breaker in case of vwps_score collision.
+        query1 = """
+        SELECT token_id, location
+        FROM DistressTickets
+        WHERE status = 'Pending'
+        ORDER BY vwps_score DESC, token_id ASC
+        LIMIT 1;
+        """
+
+        # PostGIS query to find the nearest available team, utilizing row locking to prevent race conditions
+        query2 = """
+        SELECT team_id,
+            ST_Distance(
+                current_location,
+                %s
+                ) AS dist
+        FROM RescueTeams
+        WHERE status = 'Available'
+        ORDER BY dist ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED;
+        """
+
+        # 3. The three atomic updates (logging the run, and updating statuses)
+        query_log = "INSERT INTO Dispatch_Logs (token_id, team_id) VALUES (%s, %s)"
+        query_update_victim = "UPDATE DistressTickets SET status = 'Dispatched' WHERE token_id = %s"
+        query_update_team = "UPDATE RescueTeams SET status = 'In_Transit' WHERE team_id = %s"
+
+        with connection.cursor() as cursor:
+            # Step A: Identify the highest priority victim
+            cursor.execute(query1)
+            victim_row = cursor.fetchone()
+            if victim_row is None:
+                raise HTTPException(
+                    status = 404,
+                    detail='Ticket not found.'
+                )
+            token_id = victim_row[0]
+            victim_location = victim_row[1]
+
+            # Step B: Identify the closest team
+            cursor.execute(query2, (victim_location,))
+            rescue_row = cursor.fetchone()
+            if rescue_row is None:
+                raise HTTPException(
+                    status_code= 404,
+                    detail='Rescue Team not available.'
+                )
+            team_id = rescue_row[0]
 
 
+            # Step C: Execute the updates atomically
+            cursor.execute(query_log, (token_id, team_id))
+            cursor.execute(query_update_victim, (token_id,))
+            cursor.execute(query_update_team, (team_id,))
 
+            # Permanently save the transaction to the database
+            connection.commit()
 
-
-
-
-
-
-
-
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if connection:
+            connection.close()
+    
+# Retrieve the history of all automated dispatch events
 @app.get('/getDispatchLogs')
 async def getDispatchLogs():
 
@@ -378,13 +463,9 @@ async def getDispatchLogs():
             conn.close()
 
 
-
-
-
-
-
-
-
+# ==========================================
+# 6. ARCHIVED / COMMENTED CODE
+# ==========================================
 # @app.post("/api/distress", response_model=DistressResponse, status_code= 201)
 # def report_distress(distress_message: DistressRequest):
 #     # for generating tokenID

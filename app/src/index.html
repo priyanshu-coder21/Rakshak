@@ -1,0 +1,252 @@
+<!--<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAKSHAK Command Center</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js"></script>
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">RAKSHAK System</div>
+        <nav>
+            <button class="nav-btn active" onclick="switchTab('victim-tab')">Victim Portal</button>
+            <button class="nav-btn" onclick="switchTab('team-tab')">Rescue Registration</button>
+            <button class="nav-btn" onclick="switchTab('dashboard-tab')">Command Dashboard</button>
+        </nav>
+    </header>
+
+    <main class="container">
+        VICTIM INTAKE PORTAL
+        <section id="victim-tab" class="tab-content active">
+            <div class="card">
+                <h2>Submit Distress Call</h2>
+                <p>Register a new emergency. Our local AI will extract the severity and priority.</p>
+                <form id="distress-form">
+                    <div class="form-group">
+                        <label for="raw_message">Emergency Message:</label>
+                        <textarea id="raw_message" required placeholder="E.g., Water at chest level. Trapped with 72yo grandfather..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="v_latitude">Latitude:</label>
+                            <input type="number" step="any" id="v_latitude" required placeholder="30.3165">
+                        </div>
+                        <div class="form-group">
+                            <label for="v_longitude">Longitude:</label>
+                            <input type="number" step="any" id="v_longitude" required placeholder="78.0322">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="getLocation('v_latitude', 'v_longitude')">Get GPS</button>
+                    </div>
+                    <button type="submit" class="btn-primary">Send SOS</button>
+                </form>
+                <div id="distress-response" class="response-box hidden"></div>
+            </div>
+        </section>
+
+        RESCUE TEAM REGISTRATION
+        <section id="team-tab" class="tab-content">
+            <div class="card">
+                <h2>Register Rescue Unit</h2>
+                <p>Register available ground or water units into the system.</p>
+                <form id="rescue-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="r_latitude">Current Latitude:</label>
+                            <input type="number" step="any" id="r_latitude" required placeholder="30.3165">
+                        </div>
+                        <div class="form-group">
+                            <label for="r_longitude">Current Longitude:</label>
+                            <input type="number" step="any" id="r_longitude" required placeholder="78.0322">
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="getLocation('r_latitude', 'r_longitude')">Get GPS</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="team_capacity">Team Capacity (Persons):</label>
+                        <input type="number" id="team_capacity" min="1" required placeholder="5">
+                    </div>
+                    <button type="submit" class="btn-primary">Register Team</button>
+                </form>
+                <div id="rescue-response" class="response-box hidden"></div>
+            </div>
+        </section>
+
+        COMMAND DASHBOARD
+        <section id="dashboard-tab" class="tab-content">
+            <div class="dashboard-header">
+                <h2>Live VWPS Dispatch Hub</h2>
+                <button class="btn-danger" onclick="runDispatchAlgorithm()">RUN DISPATCH MATCHING</button>
+            </div>
+            <div id="dispatch-response" class="response-box hidden"></div>
+
+            <div class="dashboard-grid">
+                Distress Queue
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Active Distress Tickets</h3>
+                        <button class="btn-secondary small" onclick="loadDistressTickets()">Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="distress-table">
+                            <thead>
+                                <tr>
+                                    <th>Token ID</th>
+                                    <th>Score</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>Data injected via JS</tbody>
+                        </table>
+                    </div>
+                </div>
+
+                Rescue Teams
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Active Rescue Teams</h3>
+                        <button class="btn-secondary small" onclick="loadRescueTeams()">Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="rescue-table">
+                            <thead>
+                                <tr>
+                                    <th>Team ID</th>
+                                    <th>Capacity</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>Data injected via JS</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="app.js"></script>
+</body>
+</html> -->
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rescue Dispatch Console</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Rescue Dispatch Console</h1>
+    <p id="clock" class="muted"></p>
+  </div>
+  <label class="auto"><input type="checkbox" id="autoRefresh" checked> Auto-refresh (10s)</label>
+  <button id="refreshAll" class="ghost">Refresh now</button>
+</header>
+
+<section class="stats" aria-label="Summary">
+  <div><b id="stPending">0</b><span>Pending requests</span></div>
+  <div><b id="stDispatched">0</b><span>Dispatched</span></div>
+  <div><b id="stAvail">0</b><span>Teams available</span></div>
+  <div><b id="stTransit">0</b><span>Teams in transit</span></div>
+</section>
+
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="report">Report distress</button>
+  <button class="tab" data-tab="teams">Rescue teams</button>
+  <button class="tab" data-tab="dispatch">Dispatch</button>
+  <button class="tab" data-tab="tickets">All requests</button>
+  <button class="tab" data-tab="logs">Dispatch log</button>
+</nav>
+
+<main>
+  <section id="tab-report" class="panel active">
+    <h2>Report distress</h2>
+    <form id="distressForm" class="card form">
+      <label>What is happening?
+        <textarea id="dMsg" rows="5" required placeholder="Example: Water is rising in our house. Two elderly people and a baby are trapped on the first floor."></textarea>
+        <small class="muted"><span id="dCount">0</span>/120 words used (extra words are ignored by the triage AI)</small>
+      </label>
+      <div class="row">
+        <label>Latitude<input id="dLat" type="number" step="any" min="-90" max="90" required value="30.3165"></label>
+        <label>Longitude<input id="dLng" type="number" step="any" min="-180" max="180" required value="78.0322"></label>
+      </div>
+      <div class="actions">
+        <button type="button" class="ghost" data-geo="d">Use my location</button>
+        <button type="submit" id="dSubmit">Send request</button>
+      </div>
+    </form>
+    <div id="dResult" class="card result" hidden></div>
+  </section>
+
+  <section id="tab-teams" class="panel">
+    <h2>Rescue teams</h2>
+    <form id="teamForm" class="card form">
+      <div class="row three">
+        <label>Latitude<input id="tLat" type="number" step="any" min="-90" max="90" required value="30.3165"></label>
+        <label>Longitude<input id="tLng" type="number" step="any" min="-180" max="180" required value="78.0322"></label>
+        <label>Team capacity (min 5)<input id="tCap" type="number" min="5" required value="10"></label>
+      </div>
+      <div class="actions">
+        <button type="button" class="ghost" data-geo="t">Use my location</button>
+        <button type="submit" id="tSubmit">Register team</button>
+      </div>
+    </form>
+    <div class="bar"><h3>Registered teams</h3><button class="ghost" data-refresh="teams">Refresh</button></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Team</th><th>Status</th><th>Capacity</th><th>Location</th></tr></thead>
+      <tbody id="teamBody"></tbody>
+    </table></div>
+  </section>
+
+  <section id="tab-dispatch" class="panel">
+    <h2>Dispatch</h2>
+    <div class="card">
+      <p>Assigns the highest-priority pending request to the nearest available team.</p>
+      <div class="actions"><button id="runDispatch">Run dispatch</button></div>
+      <div id="dispResult" class="result" hidden></div>
+    </div>
+    <div class="bar"><h3>Next in queue</h3></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Token</th><th>Priority score</th><th>Severity</th><th>Vulnerability</th><th>Waiting since</th></tr></thead>
+      <tbody id="queueBody"></tbody>
+    </table></div>
+  </section>
+
+  <section id="tab-tickets" class="panel">
+    <h2>All requests</h2>
+    <div class="bar">
+      <input id="tkSearch" type="search" placeholder="Find by token or message">
+      <select id="tkFilter">
+        <option value="">All statuses</option>
+        <option>Pending</option>
+        <option>Dispatched</option>
+      </select>
+      <button class="ghost" data-refresh="tickets">Refresh</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Token</th><th>Message</th><th>Severity</th><th>Vulnerability</th><th>Score</th><th>Status</th><th>Location</th></tr></thead>
+      <tbody id="tkBody"></tbody>
+    </table></div>
+  </section>
+
+  <section id="tab-logs" class="panel">
+    <h2>Dispatch log</h2>
+    <div class="bar"><span class="muted">Newest first</span><button class="ghost" data-refresh="logs">Refresh</button></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Log</th><th>Token</th><th>Team</th><th>Dispatched at</th><th>Alert sent</th></tr></thead>
+      <tbody id="logBody"></tbody>
+    </table></div>
+  </section>
+</main>
+
+<div id="toasts" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
