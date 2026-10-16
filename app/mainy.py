@@ -1,7 +1,7 @@
 # ==========================================
 # 1. IMPORTS
 # ==========================================
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 from typing import Annotated, Literal
 import string
@@ -60,6 +60,10 @@ class RescueResponse(BaseModel):
     status: Literal['Available', 'In_Transit', 'Assigned']
     message: str
 
+class RescueCompleteRequest(BaseModel):
+    token_id: str = Field(..., description="The unique token ID of the rescued victim")
+    team_id: str = Field(..., description="The ID of the rescue team completing the operation")
+
 
 # ==========================================
 # 4. HELPER & UTILITY FUNCTIONS
@@ -71,33 +75,24 @@ def get_db_connection():
         user=os.getenv("POSTGRES_USER"),
         password=os.getenv("POSTGRES_PASSWORD"),
         host=os.getenv("POSTGRES_HOST"),
-        port=os.getenv("POSTGRES_PORT")
+        port=os.getenv("POSTGRES_PORT"),
+        sslmode="require"  # This is mandatory for Supabase
     )
 
 # token id generation to create an anonymous tracking ID (PID paradigm) for victims
-def token_id_generator(prefix="TK-2026-UK") -> str:
+def distress_token_id_generator(prefix="TK-2026-UK") -> str:
     random_chars = ''.join(
         secrets.choice(string.ascii_uppercase + string.digits)
         for _ in range(6)
     )
-    # OR
-    # characters = []
-    # for _ in range(6):
-    #     character = secrets.choice(
-    #         string.ascii_uppercase + string.digits
-    #     )
-    #     characters.append(character)
-    # random_chars = ''.join(characters)
-
     return f"{prefix}-{random_chars}"
 
 # team_id generation to uniquely identify rescue units
-def team_id_generator(prefix='UK-2026-RES') -> str:
+def rescue_team_id_generator(prefix='UK-2026-RES') -> str:
     random_chars = ''.join(
         secrets.choice (string.ascii_uppercase + string.digits)
         for _ in range(4)
     )
-
     return f"{prefix}-{random_chars}"
 
 # Passes the raw message to a local LLM to extract structured severity and vulnerability metrics
@@ -142,21 +137,76 @@ def extract_disaster_metrics(text: str) -> dict:
 async def serve_index():
     return FileResponse(os.path.join("src", "index.html"))
 
+
+
+# post through telegram
+@app.post("/api/telegram")
+async def telegram_webhook(request: Request):
+    telegram_payload = await request.json()
+    
+    # 1. Extract message details
+    message = telegram_payload.get("message", {})
+    raw_text = message.get("text")
+    chat_id = message.get("chat", {}).get("id")
+    
+    if not raw_text:
+        return {"status": "ignored"}
+
+    # Mock coordinates for simulation (can also be extracted if user shares location)
+    latitude = 30.3165
+    longitude = 78.0322
+
+    # 2. Run the RAKSHAK pipeline
+    token_id = distress_token_id_generator()
+    extracted_data = extract_disaster_metrics(raw_text) # extracted_data: python object (dict)
+    severity = int(extracted_data.get("severity", 3))
+    vulnerability = int(extracted_data.get("vulnerability", 3))
+
+    # 3. Insert into PostgreSQL with PostGIS
+    conn = None
+    
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            insert_sql = """
+                INSERT INTO DistressTickets (
+                    token_id, raw_message, extracted_json, location, severity, vulnerability, status
+                )
+                VALUES (
+                    %s, %s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, 'Pending'
+                );
+            """
+            cur.execute(
+                insert_sql,
+                (token_id, raw_text, Json(extracted_data), longitude, latitude, severity, vulnerability)
+            )
+            conn.commit()
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database insertion failed: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return {"status": "ok", "token_id": token_id}
+
+
 # request going to db by victim to log their distress call
-@app.post('/api/distress', response_model=DistressResponse, status_code=201)
+@app.post('/api/reportDistress', response_model=DistressResponse, status_code=201)
 def report_distress(distress_data: DistressRequest):
 
     # Generate a unique tracker and extract data via Ollama
-    token_id = token_id_generator()
+    token_id = distress_token_id_generator()
     extracted_data = extract_disaster_metrics(distress_data.raw_message)
     extracted_json = Json(extracted_data)
     
-    # NOTE: Hardcoded metrics (can be dynamically mapped from extracted_json later)
-    severity = 1
-    vulnerability = 1
+    # Dynamically extract metrics rather than using hardcoded values
+    severity = int(extracted_data.get("severity", 3))
+    vulnerability = int(extracted_data.get("vulnerability", 3))
 
     conn = None
-    cur = None
 
     # SQL string mapping coordinates to a PostGIS spatial point (SRID 4326)
     insert_sql_query = """
@@ -209,7 +259,7 @@ def report_distress(distress_data: DistressRequest):
     )
 
 # get data from Distress table for the command dashboard
-@app.get('/getDistress')
+@app.get('/api/getDistress')
 async def get_distress():
 
     connection = None
@@ -259,7 +309,7 @@ async def get_distress():
 async def post_rescue(rescue_data:RescueRequest):
 
     # Create a unique ID for the team
-    team_id = team_id_generator()
+    team_id = rescue_team_id_generator()
 
     connection = None
     cursor = None
@@ -387,7 +437,7 @@ async def dispatch_run():
             victim_row = cursor.fetchone()
             if victim_row is None:
                 raise HTTPException(
-                    status = 404,
+                    status_code = 404,
                     detail='Ticket not found.'
                 )
             token_id = victim_row[0]
@@ -447,7 +497,8 @@ async def getDispatchLogs():
                     'token_id': row[1],
                     'team_id': row[2],
                     'dispatch_time': row[3],
-                    'sns_alert_sent': row[4]
+                    'sns_alert_sent': row[4],
+                    'rescue_status': row[5] # Maps the newly added 'rescue_status' column
                 })
 
             return result
@@ -463,49 +514,52 @@ async def getDispatchLogs():
             conn.close()
 
 
-# ==========================================
-# 6. ARCHIVED / COMMENTED CODE
-# ==========================================
-# @app.post("/api/distress", response_model=DistressResponse, status_code= 201)
-# def report_distress(distress_message: DistressRequest):
-#     # for generating tokenID
-#     token_id = token_id_generator()
-
-#     # sending message to ollama model so that it can refine the message
-#     extracted_data = message_extraction(distress_message.raw_message)
-#     severity
-
-#     # Write to PostgreSQL (PostGIS Point: Longitude first, then Latitude)
-#     insert_sql = """
-#         INSERT INTO DistressTickets (
-#             token_id, raw_message, extracted_json, location, severity, vulnerability, status
-#         )
-#         VALUES (
-#             %s, %s, %s, ST_SetSRID(ST_MakePoint(%s, %s), 4326), %s, %s, 'Pending'
-#         );
-#     """
-
-#     conn = None
-#     try:
-#         conn = get_db_connection()
-#         with conn.cursor() as cursor:
-#             cursor.execute(
-#                 insert_sql,
-#                 (
-#                     token_id,
-#                     extracted_data.raw_message,
-#                     Json(extracted_data),
-#                     extracted_data.longitude,  # PostGIS takes X (lon) first
-#                     extracted_data.latitude,   # PostGIS takes Y (lat) second
-#                     severity,
-#                     vulnerability
-#                 )
-#             )
-#             conn.commit()
-#     except Exception as db_err:
-#         if conn:
-#             conn.rollback()
-#         raise HTTPException(status_code=500, detail=f"Database transaction error: {str(db_err)}")
-#     finally:
-#         if conn:
-#             conn.close()
+@app.post('/api/dispatch/complete', status_code=200)
+async def complete_rescue(payload: RescueCompleteRequest):
+    connection = None
+    
+    try:
+        connection = get_db_connection()
+        
+        # 1. Update the dispatch log to reflect completion
+        query_log = """
+            UPDATE Dispatch_Logs 
+            SET rescue_status = 'Completed' 
+            WHERE token_id = %s AND team_id = %s
+        """
+        
+        # 2. Mark the victim's ticket as 'Resolved' rather than deleting it for audit trails
+        query_victim = """
+            UPDATE DistressTickets 
+            SET status = 'Resolved' 
+            WHERE token_id = %s
+        """
+        
+        # 3. Free up the rescue team so the VWPS algorithm can assign them a new victim
+        query_team = """
+            UPDATE RescueTeams 
+            SET status = 'Available' 
+            WHERE team_id = %s
+        """
+        
+        with connection.cursor() as cursor:
+            # Execute all three updates in a single ACID transaction
+            cursor.execute(query_log, (payload.token_id, payload.team_id))
+            cursor.execute(query_victim, (payload.token_id,))
+            cursor.execute(query_team, (payload.team_id,))
+            
+            # Permanently save the state changes to the database
+            connection.commit()
+            
+        return {
+            "status": "Success",
+            "message": f"Rescue operation for {payload.token_id} completed. Team {payload.team_id} is now available."
+        }
+        
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if connection:
+            connection.close()

@@ -1,388 +1,165 @@
-// // --- CONFIGURATION ---
-// const API_BASE_URL = 'http://localhost:8000'; // Ensure this matches your FastAPI server URL
-
-// // --- UI / TAB SWITCHING ---
-// function switchTab(tabId) {
-//     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-//     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    
-//     document.getElementById(tabId).classList.add('active');
-//     event.target.classList.add('active');
-
-//     if (tabId === 'dashboard-tab') {
-//         loadDistressTickets();
-//         loadRescueTeams();
-//     }
-// }
-
-// // --- UTILITY: GET BROWSER GPS ---
-// function getLocation(latId, lngId) {
-//     if (navigator.geolocation) {
-//         navigator.geolocation.getCurrentPosition(
-//             (position) => {
-//                 document.getElementById(latId).value = position.coords.latitude.toFixed(6);
-//                 document.getElementById(lngId).value = position.coords.longitude.toFixed(6);
-//             },
-//             (error) => alert("Error getting location: " + error.message)
-//         );
-//     } else {
-//         alert("Geolocation is not supported by this browser.");
-//     }
-// }
-
-// // --- UTILITY: SHOW MESSAGES ---
-// function showResponse(elementId, message, isError = false) {
-//     const el = document.getElementById(elementId);
-//     el.textContent = message;
-//     el.classList.remove('hidden', 'error');
-//     if (isError) el.classList.add('error');
-//     setTimeout(() => el.classList.add('hidden'), 5000); // Auto-hide
-// }
-
-// // --- API 1: SUBMIT DISTRESS TICKET ---
-// document.getElementById('distress-form').addEventListener('submit', async (e) => {
-//     e.preventDefault();
-//     const payload = {
-//         raw_message: document.getElementById('raw_message').value,
-//         latitude: parseFloat(document.getElementById('v_latitude').value),
-//         longitude: parseFloat(document.getElementById('v_longitude').value)
-//     };
-
-//     try {
-//         const res = await fetch(`${API_BASE_URL}/api/distress`, {
-//             method: 'POST',
-//             headers: { 'Content-Type': 'application/json' },
-//             body: JSON.stringify(payload)
-//         });
-        
-//         const data = await res.json();
-//         if (res.ok) {
-//             showResponse('distress-response', `Success! Token ID: ${data.token_id} | Status: ${data.status}`);
-//             e.target.reset();
-//         } else {
-//             showResponse('distress-response', `Error: ${data.detail}`, true);
-//         }
-//     } catch (error) {
-//         showResponse('distress-response', `Network Error: ${error.message}`, true);
-//     }
-// });
-
-// // --- API 2: REGISTER RESCUE TEAM ---
-// document.getElementById('rescue-form').addEventListener('submit', async (e) => {
-//     e.preventDefault();
-//     const payload = {
-//         latitude: parseFloat(document.getElementById('r_latitude').value),
-//         longitude: parseFloat(document.getElementById('r_longitude').value),
-//         team_capacity: parseInt(document.getElementById('team_capacity').value)
-//     };
-
-//     try {
-//         const res = await fetch(`${API_BASE_URL}/api/rescue`, {
-//             method: 'POST',
-//             headers: { 'Content-Type': 'application/json' },
-//             body: JSON.stringify(payload)
-//         });
-        
-//         const data = await res.json();
-//         if (res.ok) {
-//             showResponse('rescue-response', `Registered! Team ID: ${data.team_id}`);
-//             e.target.reset();
-//         } else {
-//             showResponse('rescue-response', `Error: ${data.detail}`, true);
-//         }
-//     } catch (error) {
-//         showResponse('rescue-response', `Network Error: ${error.message}`, true);
-//     }
-// });
-
-// // --- API 3: FETCH DISTRESS DASHBOARD ---
-// async function loadDistressTickets() {
-//     try {
-//         const res = await fetch(`${API_BASE_URL}/getDistress`);
-//         if (!res.ok) throw new Error("Failed to fetch tickets");
-//         const tickets = await res.json();
-        
-//         const tbody = document.querySelector('#distress-table tbody');
-//         tbody.innerHTML = ''; 
-        
-//         tickets.forEach(t => {
-//             tbody.innerHTML += `
-//                 <tr>
-//                     <td><strong>${t.token_id}</strong></td>
-//                     <td>${t.vwps_score ? t.vwps_score.toFixed(2) : '0.00'}</td>
-//                     <td><span style="color: ${t.status === 'Pending' ? '#d97706' : '#16a34a'}">${t.status}</span></td>
-//                 </tr>
-//             `;
-//         });
-//     } catch (error) {
-//         console.error(error);
-//     }
-// }
-
-// // --- API 4: FETCH TEAMS DASHBOARD ---
-// async function loadRescueTeams() {
-//     try {
-//         const res = await fetch(`${API_BASE_URL}/getRescue`);
-//         if (!res.ok) throw new Error("Failed to fetch teams");
-//         const teams = await res.json();
-        
-//         const tbody = document.querySelector('#rescue-table tbody');
-//         tbody.innerHTML = ''; 
-        
-//         teams.forEach(t => {
-//             tbody.innerHTML += `
-//                 <tr>
-//                     <td><strong>${t.team_id}</strong></td>
-//                     <td>${t.capacity}</td>
-//                     <td>${t.status}</td>
-//                 </tr>
-//             `;
-//         });
-//     } catch (error) {
-//         console.error(error);
-//     }
-// }
-
-// // --- API 5: RUN DISPATCH SCHEDULER ---
-// async function runDispatchAlgorithm() {
-//     try {
-//         const res = await fetch(`${API_BASE_URL}/api/dispatch/run`, {
-//             method: 'POST',
-//             headers: { 'Content-Type': 'application/json' }
-//         });
-        
-//         if (res.ok) {
-//             showResponse('dispatch-response', "Dispatch run successful! Refreshing tables...");
-//             loadDistressTickets();
-//             loadRescueTeams();
-//         } else {
-//             const data = await res.json();
-//             showResponse('dispatch-response', `Dispatch Error: ${data.detail}`, true);
-//         }
-//     } catch (error) {
-//         showResponse('dispatch-response', `Network Error: ${error.message}`, true);
-//     }
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-"use strict";
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+// Returns a harmless stand-in when an element isn't on the current page.
+const $ = s => document.querySelector(s) || { style: {}, value: '', classList: { toggle() {} } };
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const state = { tickets: [], teams: [], logs: [] };
 
-// ---------- helpers ----------
-function esc(v) {
-  return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-function toast(msg, isErr = false) {
-  const t = document.createElement("div");
-  t.className = "toast" + (isErr ? " err" : "");
-  t.textContent = msg;
-  $("#toasts").appendChild(t);
-  setTimeout(() => t.remove(), isErr ? 6000 : 3500);
-}
-function errText(detail) {
-  if (!detail) return "Something went wrong.";
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return detail.map(d => `${(d.loc || []).slice(1).join(".")}: ${d.msg}`).join("; ");
-  return JSON.stringify(detail);
-}
 async function api(path, opts) {
-  let res;
-  try { res = await fetch(path, opts); }
-  catch { throw new Error("Cannot reach the server. Check that the backend is running."); }
-  const text = await res.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = null; }
-  if (!res.ok) throw new Error(errText(data && data.detail) || res.statusText);
-  return data;
+  let r;
+  try { r = await fetch(path, opts); } catch { throw new Error('Cannot reach the server. Is it running?'); }
+  let body = null;
+  try { body = await r.json(); } catch {}
+  if (!r.ok) {
+    let d = body && body.detail;
+    if (Array.isArray(d)) d = d.map(x => (x.loc || []).slice(1).join('.') + ' ' + x.msg).join('; ');
+    throw new Error(String(d || r.statusText).replace(/^\d{3}: /, ''));
+  }
+  return body;
 }
-const post = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const post = (p, b) => api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined });
+
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toast.h); toast.h = setTimeout(() => t.className = '', 4000);
+}
 
 // PostGIS returns geometry as hex EWKB; decode it to lat/lng.
-function decodeLocation(loc) {
-  try {
-    if (loc && typeof loc === "object" && Array.isArray(loc.coordinates)) return { lng: loc.coordinates[0], lat: loc.coordinates[1] };
-    if (typeof loc !== "string" || !/^[0-9a-fA-F]+$/.test(loc)) return null;
+function coords(loc) {
+  if (!loc) return null;
+  if (Array.isArray(loc)) return { lng: loc[0], lat: loc[1] };
+  if (typeof loc === 'object' && loc.coordinates) return { lng: loc.coordinates[0], lat: loc.coordinates[1] };
+  if (typeof loc !== 'string') return null;
+  if (/^[0-9a-f]+$/i.test(loc) && loc.length >= 42) {
     const b = new Uint8Array(loc.match(/../g).map(h => parseInt(h, 16)));
-    const dv = new DataView(b.buffer);
-    const le = b[0] === 1;
-    const type = dv.getUint32(1, le);
-    let off = 5;
-    if (type & 0x20000000) off += 4;
-    return { lng: dv.getFloat64(off, le), lat: dv.getFloat64(off + 8, le) };
-  } catch { return null; }
+    const v = new DataView(b.buffer), le = b[0] === 1;
+    let o = 5; if (v.getUint32(1, le) & 0x20000000) o += 4;
+    return { lng: v.getFloat64(o, le), lat: v.getFloat64(o + 8, le) };
+  }
+  const m = /POINT\s*\(\s*(-?[\d.]+)\s+(-?[\d.]+)/i.exec(loc);
+  return m ? { lng: +m[1], lat: +m[2] } : null;
 }
-function fmtLoc(loc) {
-  const p = decodeLocation(loc);
-  return p ? `${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}` : "n/a";
-}
-function fmtTime(v) {
-  if (!v) return "n/a";
-  const d = new Date(v);
-  return isNaN(d) ? esc(v) : d.toLocaleString();
-}
-const pill = s => `<span class="pill ${esc(s)}">${esc(String(s ?? "").replace("_", " "))}</span>`;
-const sev = n => `<span class="sev sev${esc(n)}">${esc(n ?? "n/a")}</span>`;
-const emptyRow = (cols, text) => `<tr><td class="empty" colspan="${cols}">${text}</td></tr>`;
+const where = loc => { const c = coords(loc); return c ? `${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}` : 'location unknown'; };
+const when = t => { if (!t) return ''; const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleString(); };
+const ago = t => { const m = Math.max(0, Math.round((Date.now() - new Date(t)) / 60000)); return isNaN(m) ? '' : m < 60 ? m + ' min waiting' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min waiting'; };
+const sev = (label, n) => `<span class="sev s${Math.min(5, Math.max(1, +n || 3))}">${label} ${esc(n)}</span>`;
 
-// ---------- rendering ----------
-function renderStats() {
-  const t = state.tickets, r = state.teams;
-  $("#stPending").textContent = t.filter(x => x.status === "Pending").length;
-  $("#stDispatched").textContent = t.filter(x => x.status === "Dispatched").length;
-  $("#stAvail").textContent = r.filter(x => x.status === "Available").length;
-  $("#stTransit").textContent = r.filter(x => x.status === "In_Transit").length;
+function ticketHTML(t, noAct) {
+  const act = !noAct && t.status === 'Dispatched' ? `<button class="primary small" data-complete="${esc(t.token_id)}">Mark rescue complete</button>` : '';
+  return `<article class="item"><div class="head"><span class="id">${esc(t.token_id)}</span>${sev('Severity', t.severity)}${sev('Vulnerability', t.vulnerability)}<span class="pill ${esc(t.status)}">${esc(t.status)}</span></div>
+  <p class="msg">${esc(t.raw_message)}</p>
+  <div class="meta"><span>${esc(where(t.location))}</span>${t.vwps_score != null ? `<span>Priority score ${esc(Number(t.vwps_score).toFixed?.(2) ?? t.vwps_score)}</span>` : ''}${t.status === 'Pending' ? `<span>${esc(ago(t.wait_time_start))}</span>` : ''}</div>${act}</article>`;
 }
-function renderTeams() {
-  $("#teamBody").innerHTML = state.teams.length
-    ? state.teams.map(x => `<tr><td><code>${esc(x.team_id)}</code></td><td>${pill(x.status)}</td><td>${esc(x.capacity)}</td><td>${fmtLoc(x.location)}</td></tr>`).join("")
-    : emptyRow(4, "No teams yet. Register one above.");
+function teamHTML(t) {
+  return `<article class="item"><div class="head"><span class="id">${esc(t.team_id)}</span><span class="pill ${esc(t.status)}">${esc(String(t.status).replace('_', ' '))}</span></div>
+  <div class="meta"><span>Capacity ${esc(t.capacity)}</span><span>${esc(where(t.location))}</span></div></article>`;
 }
-function renderTickets() {
-  const q = $("#tkSearch").value.trim().toLowerCase(), f = $("#tkFilter").value;
-  const rows = state.tickets
-    .filter(x => (!f || x.status === f) && (!q || `${x.token_id} ${x.raw_message}`.toLowerCase().includes(q)))
-    .sort((a, b) => (b.vwps_score ?? 0) - (a.vwps_score ?? 0));
-  $("#tkBody").innerHTML = rows.length
-    ? rows.map(x => `<tr><td><code>${esc(x.token_id)}</code></td><td class="msg">${esc(x.raw_message)}</td><td>${sev(x.severity)}</td><td>${esc(x.vulnerability)}</td><td>${esc(x.vwps_score ?? "n/a")}</td><td>${pill(x.status)}</td><td>${fmtLoc(x.location)}</td></tr>`).join("")
-    : emptyRow(7, "No requests match.");
-}
-function renderQueue() {
-  const rows = state.tickets.filter(x => x.status === "Pending")
-    .sort((a, b) => (b.vwps_score ?? 0) - (a.vwps_score ?? 0) || String(a.token_id).localeCompare(b.token_id)).slice(0, 5);
-  $("#queueBody").innerHTML = rows.length
-    ? rows.map(x => `<tr><td><code>${esc(x.token_id)}</code></td><td>${esc(x.vwps_score ?? "n/a")}</td><td>${sev(x.severity)}</td><td>${esc(x.vulnerability)}</td><td>${fmtTime(x.wait_time_start)}</td></tr>`).join("")
-    : emptyRow(5, "The queue is empty.");
-}
-function renderLogs() {
-  const rows = [...state.logs].reverse();
-  $("#logBody").innerHTML = rows.length
-    ? rows.map(x => `<tr><td>${esc(x.log_id)}</td><td><code>${esc(x.token_id)}</code></td><td><code>${esc(x.team_id)}</code></td><td>${fmtTime(x.dispatch_time)}</td><td>${x.sns_alert_sent ? "Yes" : "No"}</td></tr>`).join("")
-    : emptyRow(5, "Nothing dispatched yet.");
-}
-const renderAll = () => { renderStats(); renderTeams(); renderTickets(); renderQueue(); renderLogs(); };
+const empty = msg => `<div class="empty">${msg}</div>`;
 
-// ---------- loading ----------
-const loaders = {
-  tickets: async () => { state.tickets = await api("/getDistress"); },
-  teams: async () => { state.teams = await api("/getRescue"); },
-  logs: async () => { state.logs = await api("/getDispatchLogs"); },
+const lastLog = t => state.logs.filter(l => l.token_id === t.token_id).sort((a, b) => b.log_id - a.log_id)[0];
+function rowHTML(t) {
+  const l = lastLog(t);
+  const act = t.status === 'Dispatched' ? `<button class="primary small" data-complete="${esc(t.token_id)}">Mark complete</button>` : '';
+  return `<tr><td class="id">${esc(t.token_id)}</td><td class="wrap">${esc(t.raw_message)}</td><td>${sev('', t.severity)}</td><td>${sev('', t.vulnerability)}</td>
+  <td><span class="pill ${esc(t.status)}">${esc(t.status)}</span></td><td class="id">${esc(l ? l.team_id : '-')}</td><td>${l ? when(l.dispatch_time) : '-'}</td><td>${act}</td></tr>`;
+}
+function render() {
+  const { tickets, teams, logs } = state;
+  const cnt = s => tickets.filter(t => t.status === s).length;
+  $('#stats').innerHTML = [['Total requests', tickets.length], ['Pending', cnt('Pending')], ['Dispatched', cnt('Dispatched')], ['Resolved', cnt('Resolved')],
+    ['Teams available', teams.filter(t => t.status === 'Available').length]].map(([l, n]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
+  const f = $('#ticketFilter').value;
+  const shown = tickets.filter(t => f === 'all' || t.status === f)
+    .sort((a, b) => (Number(b.vwps_score) || 0) - (Number(a.vwps_score) || 0) || String(a.token_id).localeCompare(b.token_id));
+  $('#requestRows').innerHTML = shown.length ? shown.map(rowHTML).join('') : `<tr><td colspan="8">${empty(f === 'all' ? 'No requests yet.' : 'No requests with this status.')}</td></tr>`;
+  const tl = teams.length ? teams.map(teamHTML).join('') : empty('No teams yet. Register one under Rescue teams.');
+  $('#boardTeams').innerHTML = tl; $('#teamList').innerHTML = tl;
+  $('#logRows').innerHTML = logs.length ? [...logs].sort((a, b) => b.log_id - a.log_id).map(l => `<tr><td>${esc(l.log_id)}</td><td class="id">${esc(l.token_id)}</td><td class="id">${esc(l.team_id)}</td><td>${when(l.dispatch_time)}</td><td>${l.sns_alert_sent ? 'Yes' : 'No'}</td><td><span class="pill ${esc(l.rescue_status)}">${esc(l.rescue_status || 'Dispatched')}</span></td></tr>`).join('')
+    : `<tr><td colspan="6">${empty('No dispatches yet.')}</td></tr>`;
+  $('#updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+async function load(quiet) {
+  try {
+    const [tickets, teams, logs] = await Promise.all([api('/api/getDistress'), api('/getRescue'), api('/getDispatchLogs')]);
+    Object.assign(state, { tickets, teams, logs }); render();
+  } catch (e) { if (!quiet) toast(e.message, true); else $('#updated').textContent = 'Offline: ' + e.message; }
+}
+
+async function busy(btn, fn) {
+  btn.disabled = true;
+  try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; }
+}
+
+// Header: logo on the left; the dashboard is the hub, other pages link back to it
+const here = document.body.dataset.page;
+document.querySelector('.top').innerHTML = `<a class="logo" href="/"><svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5l-8-3z" fill="currentColor"/><path d="M12 8v8M8 12h8" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>Rakshak<small>rescue dispatch</small></a><div class="topr">${here !== 'board' ? '<a class="back" href="/">Back to dashboard</a>' : ''}<button id="refresh" class="ghost">Refresh</button></div>`;
+$('#refresh').onclick = e => busy(e.target, async () => { await load(); toast('Data refreshed'); });
+$('#ticketFilter').onchange = render;
+
+// Dispatch next victim
+$('#runDispatch').onclick = e => busy(e.target, async () => {
+  const before = Math.max(0, ...state.logs.map(l => l.log_id));
+  try { await post('/api/dispatch/run'); }
+  catch (err) {
+    if (/Ticket not found/i.test(err.message)) throw new Error('No pending victims to dispatch.');
+    if (/Rescue Team not available/i.test(err.message)) throw new Error('No available rescue team. Register one or complete a rescue.');
+    throw err;
+  }
+  await load();
+  const l = state.logs.find(x => x.log_id > before);
+  toast(l ? `${l.team_id} dispatched to ${l.token_id}` : 'Dispatch run complete');
+});
+
+// Mark complete (team comes from the victim's open dispatch log)
+$('#requestRows').onclick = e => {
+  const b = e.target.closest('[data-complete]'); if (!b) return;
+  busy(b, async () => {
+    const token = b.dataset.complete;
+    const log = state.logs.filter(l => l.token_id === token && l.rescue_status !== 'Completed').sort((a, c) => c.log_id - a.log_id)[0];
+    if (!log) throw new Error('No open dispatch found for ' + token);
+    const r = await post('/api/dispatch/complete', { token_id: token, team_id: log.team_id });
+    await load(); toast(r.message);
+  });
 };
-async function load(kinds = Object.keys(loaders), quiet = false) {
-  const results = await Promise.allSettled(kinds.map(k => loaders[k]()));
-  results.forEach((r, i) => { if (r.status === "rejected" && !quiet) toast(`Could not load ${kinds[i]}: ${r.reason.message}`, true); });
-  renderAll();
-}
 
-// ---------- tabs ----------
-function showTab(name) {
-  $$(".tab").forEach(b => { const on = b.dataset.tab === name; b.classList.toggle("active", on); b.setAttribute("aria-selected", on); });
-  $$(".panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + name));
-  location.hash = name;
-}
-$$(".tab").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
-$$("[data-refresh]").forEach(b => b.addEventListener("click", async () => { await load([b.dataset.refresh]); toast("Refreshed"); }));
-$("#refreshAll").addEventListener("click", async () => { await load(); toast("Refreshed"); });
-["tkSearch", "tkFilter"].forEach(id => $("#" + id).addEventListener("input", renderTickets));
+// Report distress
+$('#geo').onclick = () => {
+  if (!navigator.geolocation) return toast('Location is not supported in this browser.', true);
+  navigator.geolocation.getCurrentPosition(p => {
+    const f = $('#distressForm'); f.latitude.value = p.coords.latitude.toFixed(5); f.longitude.value = p.coords.longitude.toFixed(5);
+    toast('Location filled in');
+  }, () => toast('Could not get your location. Enter it manually.', true));
+};
+$('#distressForm').onsubmit = e => {
+  e.preventDefault(); const f = e.target;
+  busy(f.querySelector('.primary'), async () => {
+    const r = await post('/api/reportDistress', { raw_message: f.raw_message.value.trim(), latitude: +f.latitude.value, longitude: +f.longitude.value });
+    const x = r.extracted_data || {};
+    $('#reportResult').innerHTML = `<div class="result"><p><b>Report received.</b> Save this token to track your rescue:</p><p class="id">${esc(r.token_id)}</p><p><a href="/static/track.html?token=${encodeURIComponent(r.token_id)}">Track this report</a></p>
+      <p>${sev('Severity', x.severity)} ${sev('Vulnerability', x.vulnerability)}</p><p>${esc(r.message)}</p></div>`;
+    f.raw_message.value = ''; await load(true); toast('Distress call sent');
+  });
+};
 
-// ---------- geolocation ----------
-$$("[data-geo]").forEach(b => b.addEventListener("click", () => {
-  const p = b.dataset.geo;
-  if (!navigator.geolocation) return toast("This browser cannot share your location.", true);
-  b.disabled = true;
-  navigator.geolocation.getCurrentPosition(
-    pos => { $(`#${p}Lat`).value = pos.coords.latitude.toFixed(6); $(`#${p}Lng`).value = pos.coords.longitude.toFixed(6); b.disabled = false; toast("Location filled in"); },
-    err => { b.disabled = false; toast("Could not get location: " + err.message, true); },
-    { enableHighAccuracy: true, timeout: 10000 });
-}));
-
-// ---------- distress form ----------
-$("#dMsg").addEventListener("input", e => { $("#dCount").textContent = e.target.value.trim().split(/\s+/).filter(Boolean).length; });
-$("#distressForm").addEventListener("submit", async e => {
+// Track a report
+$('#trackForm').onsubmit = e => {
   e.preventDefault();
-  const btn = $("#dSubmit"), out = $("#dResult");
-  btn.disabled = true; btn.textContent = "Sending...";
-  try {
-    const d = await post("/api/distress", {
-      raw_message: $("#dMsg").value.trim(),
-      latitude: parseFloat($("#dLat").value),
-      longitude: parseFloat($("#dLng").value),
-    });
-    out.className = "card result"; out.hidden = false;
-    out.innerHTML = `<b>${esc(d.message)}</b>
-      <div class="token"><span>Tracking token</span><code id="tokenVal">${esc(d.token_id)}</code><button type="button" class="ghost" id="copyTok">Copy token</button></div>
-      <div>Status: ${pill(d.status)} &nbsp; Severity: ${sev(d.extracted_data?.severity)} &nbsp; Vulnerability: <b>${esc(d.extracted_data?.vulnerability ?? "n/a")}</b></div>`;
-    $("#copyTok").addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(d.token_id); toast("Token copied"); } catch { toast("Copy failed. Select the token and copy it manually.", true); }
-    });
-    $("#dMsg").value = ""; $("#dCount").textContent = "0";
-    toast("Request sent");
-    load(["tickets"], true);
-  } catch (err) {
-    out.className = "card result err"; out.hidden = false;
-    out.textContent = "Request not sent: " + err.message;
-    toast(err.message, true);
-  } finally { btn.disabled = false; btn.textContent = "Send request"; }
-});
+  busy(e.target.querySelector('.primary'), async () => {
+    await load(true);
+    const token = e.target.token.value.trim().toUpperCase();
+    const t = state.tickets.find(x => String(x.token_id).toUpperCase() === token);
+    $('#trackResult').innerHTML = t ? `<div class="result">${ticketHTML(t, true)}</div>` : `<div class="result err">No report found for ${esc(token)}. Check the token and try again.</div>`;
+  });
+};
 
-// ---------- team form ----------
-$("#teamForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const btn = $("#tSubmit"); btn.disabled = true; btn.textContent = "Registering...";
-  try {
-    const d = await post("/api/rescue", {
-      latitude: parseFloat($("#tLat").value),
-      longitude: parseFloat($("#tLng").value),
-      team_capacity: parseInt($("#tCap").value, 10),
-    });
-    toast(`Team ${d.team_id} registered`);
-    await load(["teams"], true);
-  } catch (err) { toast(err.message, true); }
-  finally { btn.disabled = false; btn.textContent = "Register team"; }
-});
+// Register team
+$('#teamForm').onsubmit = e => {
+  e.preventDefault(); const f = e.target;
+  busy(f.querySelector('.primary'), async () => {
+    const r = await post('/api/rescue', { latitude: +f.latitude.value, longitude: +f.longitude.value, team_capacity: +f.team_capacity.value });
+    await load(); toast(`Team ${r.team_id} registered and available`);
+  });
+};
 
-// ---------- dispatch ----------
-$("#runDispatch").addEventListener("click", async () => {
-  const btn = $("#runDispatch"), out = $("#dispResult");
-  btn.disabled = true; btn.textContent = "Dispatching...";
-  const before = state.logs.length;
-  try {
-    await api("/api/dispatch/run", { method: "POST" });
-    await load(undefined, true);
-    const log = state.logs.length > before ? state.logs[state.logs.length - 1] : null;
-    out.className = "result"; out.hidden = false;
-    out.innerHTML = log
-      ? `Team <code>${esc(log.team_id)}</code> is on the way to request <code>${esc(log.token_id)}</code>.`
-      : "Dispatch finished.";
-    toast("Dispatched");
-  } catch (err) {
-    await load(undefined, true);
-    out.className = "result err"; out.hidden = false;
-    out.textContent = "Nothing dispatched: " + err.message;
-    toast(err.message, true);
-  } finally { btn.disabled = false; btn.textContent = "Run dispatch"; }
-});
-
-// ---------- auto refresh + clock ----------
-setInterval(() => { $("#clock").textContent = new Date().toLocaleString(); }, 1000);
-$("#clock").textContent = new Date().toLocaleString();
-setInterval(() => { if ($("#autoRefresh").checked && !document.hidden) load(undefined, true); }, 10000);
-
-const startTab = location.hash.slice(1);
-if ($(`.tab[data-tab="${startTab}"]`)) showTab(startTab);
-load();
+load(); setInterval(() => load(true), 10000);
+const q = new URLSearchParams(location.search).get('token'), tf = document.querySelector('#trackForm');
+if (q && tf) { tf.token.value = q; tf.requestSubmit(); }

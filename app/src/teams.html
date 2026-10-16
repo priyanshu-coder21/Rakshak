@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rescue teams – Rakshak</title>
+<link rel="stylesheet" href="/static/style.css?v=4">
+</head>
+<body data-page="teams">
+<header class="top"></header>
+<main>
+<div class="cols">
+  <form id="teamForm" class="card">
+    <h2>Register a rescue team</h2>
+    <div class="row">
+        <label>Latitude <input name="latitude" type="number" step="any" min="-90" max="90" value="30.3165" required></label>
+        <label>Longitude <input name="longitude" type="number" step="any" min="-180" max="180" value="78.0322" required></label>
+      </div>
+    <label>Team capacity (minimum 5) <input name="team_capacity" type="number" min="5" value="5" required></label>
+    <button class="primary">Register team</button>
+  </form>
+  <div id="list"><h2>All teams</h2><div id="teamList" class="list"></div></div>
+</div>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/static/app.js?v=4"></script>
+</body>
+</html>

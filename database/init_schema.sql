@@ -23,14 +23,22 @@ CREATE TABLE IF NOT EXISTS DistressTickets (
     status VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Dispatched', 'Resolved'))
 );
 
+-- -- Create the Dispatch_Logs Table (The Relationship Table)
+-- CREATE TABLE IF NOT EXISTS Dispatch_Logs (
+--     log_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--     token_id VARCHAR(50) NOT NULL REFERENCES DistressTickets(token_id), -- Links to the victim[cite: 1]
+--     team_id VARCHAR(50) NOT NULL REFERENCES RescueTeams(team_id), -- Links to the rescue team[cite: 1]
+--     dispatch_time TIMESTAMPTZ DEFAULT NOW(),
+--     sns_alert_sent BOOLEAN DEFAULT FALSE
+-- );
+
 -- Create the Dispatch_Logs Table (The Relationship Table)
 CREATE TABLE IF NOT EXISTS Dispatch_Logs (
     log_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     token_id VARCHAR(50) NOT NULL REFERENCES DistressTickets(token_id), -- Links to the victim[cite: 1]
     team_id VARCHAR(50) NOT NULL REFERENCES RescueTeams(team_id), -- Links to the rescue team[cite: 1]
     dispatch_time TIMESTAMPTZ DEFAULT NOW(),
+    rescue_status VARCHAR(20) DEFAULT 'In Process' CHECK (rescue_status IN ('In Process', 'Completed')),
     sns_alert_sent BOOLEAN DEFAULT FALSE
 );
-
-
 
