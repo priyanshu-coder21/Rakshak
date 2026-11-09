@@ -212,14 +212,53 @@ if (distressForm) {
   distressForm.onsubmit = e => {
     e.preventDefault(); const f = e.target;
     busy(f.querySelector('.primary'), async () => {
-      const r = await post('/api/reportDistress', { raw_message: f.raw_message.value.trim(), latitude: +f.latitude.value, longitude: +f.longitude.value });
-      const x = r.extracted_data || {};
-      $('#reportResult').innerHTML = `<div class="result"><p><b>Report received.</b> Save this token to track your rescue:</p><p class="id">${esc(r.token_id)}</p><p><a href="track.html?token=${encodeURIComponent(r.token_id)}">Track this report</a></p>
-        <p>${sev('Severity', x.severity)} ${sev('Vulnerability', x.vulnerability)}</p><p>${esc(r.message)}</p></div>`;
-      f.raw_message.value = ''; await load(true); toast('Distress call sent');
+      const payload = {
+        raw_message: f.raw_message.value.trim(),
+        latitude: +f.latitude.value,
+        longitude: +f.longitude.value
+      };
+
+      try {
+        const r = await post('/api/reportDistress', payload);
+        const x = r.extracted_data || {};
+        $('#reportResult').innerHTML = `<div class="result"><p><b>Report received.</b> Save this token to track your rescue:</p><p class="id">${esc(r.token_id)}</p><p><a href="track.html?token=${encodeURIComponent(r.token_id)}">Track this report</a></p>
+          <p>${sev('Severity', x.severity)} ${sev('Vulnerability', x.vulnerability)}</p><p>${esc(r.message)}</p></div>`;
+        f.raw_message.value = ''; await load(true); toast('Distress call sent');
+      } catch (err) {
+        // Low-Connectivity Store-and-Forward Buffer
+        const queue = JSON.parse(localStorage.getItem('offline_distress_queue') || '[]');
+        queue.push(payload);
+        localStorage.setItem('offline_distress_queue', JSON.stringify(queue));
+
+        $('#reportResult').innerHTML = `<div class="result"><p><b>Low connectivity detected (Offline Mode).</b></p><p>Your SOS is safely buffered on this device (${queue.length} queued) and will automatically transmit the moment signal returns.</p></div>`;
+        f.raw_message.value = '';
+        toast('Offline: SOS buffered for auto-send', true);
+      }
     });
   };
 }
+
+// Automatically flush buffered SOS messages when connectivity returns
+async function flushOfflineQueue() {
+  const queue = JSON.parse(localStorage.getItem('offline_distress_queue') || '[]');
+  if (!queue.length) return;
+
+  const remaining = [];
+  for (const item of queue) {
+    try {
+      const r = await post('/api/reportDistress', item);
+      toast(`Buffered SOS sent! Token: ${r.token_id}`);
+    } catch {
+      remaining.push(item);
+    }
+  }
+
+  localStorage.setItem('offline_distress_queue', JSON.stringify(remaining));
+  if (remaining.length < queue.length) await load(true);
+}
+
+window.addEventListener('online', flushOfflineQueue);
+setInterval(flushOfflineQueue, 10000);
 
 const trackForm = document.getElementById('trackForm');
 if (trackForm) {
