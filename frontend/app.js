@@ -10,7 +10,7 @@ const isLocal = window.location.hostname === 'localhost' || window.location.host
 // When deployed on Vercel, it automatically calls your live Render URL.
 const BACKEND_URL = isLocal 
   ? 'http://localhost:8000' 
-  : 'https://rakshak-backend-m6yx.onrender.com';
+  : 'https://rakshak-v5zr.onrender.com';
   
 // === 2. API WRAPPER ===
 async function api(path, opts = {}) {
