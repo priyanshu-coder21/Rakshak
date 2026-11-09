@@ -5,4 +5,3 @@ disaster_env/
 __pycache__/
 *.pyc
 .DS_Store
-/backend/.venv/
