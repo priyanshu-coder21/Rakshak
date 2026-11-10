@@ -1,7 +1,7 @@
 .env
-.venv/
-.venvrakshak/
+.rakshakvenv/
 disaster_env/
 __pycache__/
 *.pyc
 .DS_Store
+ai_server.py
